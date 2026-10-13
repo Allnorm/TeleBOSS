@@ -1111,7 +1111,7 @@ class Op(PreVote):
                f"{utils.html_fix(self.data_list[2])}"\
                f"\nПрава, выбранные для выдачи пользователю:{self.rights_text}"\
                f"\nИнициатор голосования: {utils.html_fix(self.data_list[0])}."\
-               "\n<b>Тег можно будет установить ПОСЛЕ закрытия голосования.</b>"
+               "\n<b>Тег можно установить командой /rank.</b>"
 
     def vote_args(self):
         return [self.data_list[3], self.data_list[2], self.rights_data]

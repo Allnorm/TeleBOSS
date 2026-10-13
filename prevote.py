@@ -8,6 +8,7 @@ import zlib
 from typing import Optional
 
 import telebot
+import unicodedata
 from telebot import types
 
 import utils
@@ -975,7 +976,7 @@ class OpSetup(PreVote):
             admin_list_text += f"\n{counter}. "
             admin_title = f'"{admin.custom_title}"' if admin.custom_title else "отсутствует"
             if admin.is_anonymous and not admin.user.is_bot:
-                admin_list_text += f'Анонимный администратор (звание {admin_title})'
+                admin_list_text += f'Анонимный администратор (тег {admin_title})'
             else:
                 admin_list_text += utils.username_parser_chat_member(admin)
             if admin.status == "creator":
@@ -1110,7 +1111,7 @@ class Op(PreVote):
                f"{utils.html_fix(self.data_list[2])}"\
                f"\nПрава, выбранные для выдачи пользователю:{self.rights_text}"\
                f"\nИнициатор голосования: {utils.html_fix(self.data_list[0])}."\
-               "\n<b>Звание можно будет установить ПОСЛЕ закрытия голосования.</b>"
+               "\n<b>Тег можно будет установить ПОСЛЕ закрытия голосования.</b>"
 
     def vote_args(self):
         return [self.data_list[3], self.data_list[2], self.rights_data]
@@ -1181,7 +1182,7 @@ class Rank(PreVote):
         return None
 
     def direct_fn(self):
-        bot.reply_to(self.message, "Звание не может быть пустым.")
+        bot.reply_to(self.message, "Тег не может быть пустым.")
 
     def arg_fn(self, arg):
         if utils.topic_reply_fix(self.message.reply_to_message) is None:
@@ -1192,19 +1193,15 @@ class Rank(PreVote):
             return
 
         if utils.topic_reply_fix(self.message.reply_to_message) is None:
-            bot.reply_to(self.message, "Ответьте на сообщение бота, звание которого вы хотите сменить.")
+            bot.reply_to(self.message, "Ответьте на сообщение бота, тег которого вы хотите сменить.")
             return
 
         if self.message.reply_to_message.from_user.id == data.ANONYMOUS_ID:
-            bot.reply_to(self.message, "Я не могу менять звание анонимных администраторов!")
+            bot.reply_to(self.message, "Я не могу менять тег анонимных администраторов!")
             return
 
         if not self.message.reply_to_message.from_user.is_bot:
-            bot.reply_to(self.message, "Вы не можете менять звание других пользователей (кроме ботов).")
-            return
-
-        if bot.get_chat_member(data.main_chat_id, self.message.reply_to_message.from_user.id).status != "administrator":
-            bot.reply_to(self.message, "Данный бот не является администратором.")
+            bot.reply_to(self.message, "Вы не можете менять тег других пользователей (кроме ботов).")
             return
 
         if data.bot_id == self.message.reply_to_message.from_user.id:
@@ -1218,10 +1215,14 @@ class Rank(PreVote):
         rank_text = self.msg_txt.split(maxsplit=1)[1]
 
         if len(rank_text) > 16:
-            bot.reply_to(self.message, "Звание не может быть длиннее 16 символов.")
+            bot.reply_to(self.message, "Тег не может быть длиннее 16 символов.")
             return
 
-        self.vote_text = ("Тема голосования: смена звания бота " +
+        if any(unicodedata.category(c) in ('So', 'Sk') or ord(c) > 0x1F000 for c in rank_text):
+            bot.reply_to(self.message, "В тегах не поддерживаются эмодзи.")
+            return
+
+        self.vote_text = ("Тема голосования: смена тега бота " +
                           utils.username_parser(self.message.reply_to_message, True) +
                           f" на \"{utils.html_fix(rank_text)}\""
                           f".\nИнициатор голосования: {utils.username_parser(self.message, True)}.")
@@ -1232,31 +1233,33 @@ class Rank(PreVote):
         self.poll_maker()
 
     def me(self):
-        if bot.get_chat_member(data.main_chat_id, self.message.from_user.id).status == "administrator":
 
-            rank_text = self.msg_txt.split(maxsplit=1)[1]
+        member_status = bot.get_chat_member(data.main_chat_id, self.message.from_user.id).status
 
-            if len(rank_text) > 16:
-                bot.reply_to(self.message, "Звание не может быть длиннее 16 символов.")
-                return
+        if member_status == "creator":
+            bot.reply_to(self.message, "Я не могу изменить тег создателя чата.")
+            return
 
-            try:
+        rank_text = self.msg_txt.split(maxsplit=1)[1]
+
+        if len(rank_text) > 16:
+            bot.reply_to(self.message, "Тег не может быть длиннее 16 символов.")
+            return
+
+        try:
+            if member_status == "administrator":
                 bot.set_chat_administrator_custom_title(data.main_chat_id, self.message.from_user.id, rank_text)
-                bot.reply_to(self.message, "Звание \"" + rank_text + "\" успешно установлено пользователю "
-                             + utils.username_parser(self.message, True) + ".")
-            except telebot.apihelper.ApiTelegramException as e:
-                if "ADMIN_RANK_EMOJI_NOT_ALLOWED" in str(e):
-                    bot.reply_to(self.message, "В звании не поддерживаются эмодзи.")
-                    return
-                logging.error(f'Error when changing administrator title!\n{e}')
-                bot.reply_to(self.message, "Не удалось сменить звание.")
-            return
-        elif bot.get_chat_member(data.main_chat_id, self.message.from_user.id).status == "creator":
-            bot.reply_to(self.message, "Я не могу изменить звание создателя чата.")
-            return
-        else:
-            bot.reply_to(self.message, "Вы не являетесь администратором.")
-            return
+            else:
+                bot.set_chat_member_tag(data.main_chat_id, self.message.from_user.id, rank_text)
+            bot.reply_to(self.message, f'Тег "{rank_text}" успешно установлен пользователю '
+                                       f'{utils.username_parser(self.message, True)}.')
+        except telebot.apihelper.ApiTelegramException as e:
+            if "ADMIN_RANK_EMOJI_NOT_ALLOWED" in str(e):
+                bot.reply_to(self.message, "В тегах не поддерживаются эмодзи.")
+                return
+            logging.error(f'Error when changing administrator title!\n{e}')
+            bot.reply_to(self.message, "Не удалось сменить тег. Недостаточно прав?")
+        return
 
 
 class Deop(PreVote):
@@ -1295,7 +1298,7 @@ class Deop(PreVote):
                 return
             if admin.is_anonymous and not admin.user.is_bot:
                 admin_title = f'"{admin.custom_title}"' if admin.custom_title else "отсутствует"
-                self.reply_username = f'ANONYMOUS (звание {admin_title})'
+                self.reply_username = f'ANONYMOUS (тег {admin_title})'
             else:
                 self.reply_username = utils.username_parser_chat_member(admin)
             self.reply_user_id = admin.user.id

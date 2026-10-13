@@ -62,7 +62,9 @@ class ConfigData:
                            "can_manage_topics": True,
                            "can_post_stories": True,
                            "can_edit_stories": False,
-                           "can_delete_stories": False}
+                           "can_delete_stories": False,
+                           "can_send_welcome_messages": True,
+                           "can_manage_tags": True}
 
     __ADMIN_RUS = {"can_change_info": "Изменения профиля группы",
                    # "can_post_messages": None,
@@ -78,15 +80,17 @@ class ConfigData:
                    "can_manage_topics": "Управление темами",
                    "can_post_stories": "Публикация историй",
                    "can_edit_stories": "Изменение чужих историй",
-                   "can_delete_stories": "Удаление чужих историй"}
+                   "can_delete_stories": "Удаление чужих историй",
+                   "can_send_welcome_messages": "Управление приветствиями",
+                   "can_manage_tags": "Изменение тегов участников"}
 
     # Do not edit this section to change the parameters of the bot!
     # TeleBOSS is customizable via config file or chat voting!
     # It is possible to access sqlWorker.params directly for parameters that are stored in the database
-    VERSION = "3.3.2"  # Current bot version
+    VERSION = "3.3.3"  # Current bot version
     CODENAME = "Deuterium Discharge"
     MIN_VERSION = "3.3"  # The minimum version from which you can upgrade to this one without breaking the bot
-    BUILD_DATE = "02.08.2026"  # Bot build date
+    BUILD_DATE = "14.10.2026"  # Bot build date
     ANONYMOUS_ID = 1087968824  # ID value for anonymous user tg
     EASTER_LINK = "https://2girls.1cup.one"  # Link for Easter eggs
     global_timer = 3600  # Value in seconds of duration of votes

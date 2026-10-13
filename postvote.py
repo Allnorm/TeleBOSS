@@ -375,7 +375,7 @@ class Op(PostVote):
             elif self.is_accept and not bot.get_chat_member(self.message_vote_chat_id, self.data_list[0]).user.is_bot:
                 bot.send_message(self.message_vote_chat_id,
                                  f'Голосование завершено! <a href ="tg://user?id={self.data_list[0]}">'
-                                 f'{utils.html_fix(self.data_list[1])}</a>, пожалуйста, не забудь сменить звание!',
+                                 f'{utils.html_fix(self.data_list[1])}</a>, пожалуйста, не забудь сменить тег!',
                                  reply_to_message_id=self.message_vote_id, parse_mode='html')
             else:
                 bot.send_message(self.message_vote_chat_id, "Голосование завершено!",
@@ -385,31 +385,30 @@ class Op(PostVote):
 
 
 class Rank(PostVote):
-    _description = "смена звания бота"
+    _description = "смена тега бота"
 
     def accept(self):
-        if bot.get_chat_member(self.message_vote_chat_id, self.data_list[0]).status == "administrator":
-            try:
+
+        try:
+            if bot.get_chat_member(self.message_vote_chat_id, self.data_list[0]).status == "administrator":
                 bot.set_chat_administrator_custom_title(self.message_vote_chat_id, self.data_list[0], self.data_list[2])
-                bot.edit_message_text("Звание \"" + self.data_list[2] + "\" успешно установлено для бота "
-                                      + self.data_list[1] + " пользователем " + self.data_list[
-                                          3] + "." + self.votes_counter,
+            else:
+                bot.set_chat_member_tag(self.message_vote_chat_id, self.data_list[0], self.data_list[2])
+            bot.edit_message_text(f'Тег "{self.data_list[2]}" успешно установлен для бота {self.data_list[1]} '
+                                  f'пользователем {self.data_list[3]}.' + self.votes_counter,
+                                  self.message_vote_chat_id, self.message_vote_id)
+        except telebot.apihelper.ApiTelegramException as e:
+            if "ADMIN_RANK_EMOJI_NOT_ALLOWED" in str(e):
+                bot.edit_message_text(f"Ошибка смены тега для бота {self.data_list[1]} - "
+                                      f"в тегах не поддерживаются эмодзи." + self.votes_counter,
                                       self.message_vote_chat_id, self.message_vote_id)
-            except telebot.apihelper.ApiTelegramException as e:
-                if "ADMIN_RANK_EMOJI_NOT_ALLOWED" in str(e):
-                    bot.edit_message_text("Ошибка смены звания для бота " + self.data_list[1]
-                                          + " - в звании не поддерживаются эмодзи." + self.votes_counter,
-                                          self.message_vote_chat_id, self.message_vote_id)
-                    return
-                bot.edit_message_text("Ошибка смены звания для бота " + self.data_list[1] + "." + self.votes_counter,
-                                      self.message_vote_chat_id, self.message_vote_id)
-                raise e
-        else:
-            bot.edit_message_text("Бот " + self.data_list[1] + " не является администратором. Смена звания невозможна."
-                                  + self.votes_counter, self.message_vote_chat_id, self.message_vote_id)
+                return
+            bot.edit_message_text("Ошибка смены тега для бота " + self.data_list[1] + "." + self.votes_counter,
+                                  self.message_vote_chat_id, self.message_vote_id)
+            raise e
 
     def decline(self):
-        bot.edit_message_text("Вопрос смены звания бота " + self.data_list[1] + " отклонён." + self.votes_counter,
+        bot.edit_message_text(f"Вопрос смены тега бота {self.data_list[1]} отклонён." + self.votes_counter,
                               self.message_vote_chat_id, self.message_vote_id)
 
 

@@ -1,3 +1,4 @@
+import ast
 import configparser
 import hashlib
 import json
@@ -5,7 +6,8 @@ import logging
 import os
 import subprocess
 from dataclasses import dataclass
-from typing import Callable, Optional
+import operator as op
+from typing import Callable, Optional, Any
 
 from packaging import version
 from packaging.requirements import Requirement
@@ -39,6 +41,19 @@ def log_thread_exceptions(args):
         f"UNEXPECTED EXCEPTION IN THREAD '{thread_name}'",
         exc_info=(args.exc_type, args.exc_value, args.exc_traceback)
     )
+
+
+CALC_OPERATORS: dict[type, Any] = {
+    ast.Add: op.add,  # +
+    ast.Sub: op.sub,  # -
+    ast.Mult: op.mul,  #
+    ast.Div: op.truediv,  # /
+    ast.FloorDiv: op.floordiv,  # //
+    ast.Mod: op.mod,  # %
+    ast.Pow: op.pow,  # **
+    ast.USub: op.neg,  # унарный минус: -5
+    ast.UAdd: op.pos,  # унарный плюс: +5
+}
 
 
 @dataclass
@@ -87,10 +102,10 @@ class ConfigData:
     # Do not edit this section to change the parameters of the bot!
     # TeleBOSS is customizable via config file or chat voting!
     # It is possible to access sqlWorker.params directly for parameters that are stored in the database
-    VERSION = "3.3.3"  # Current bot version
-    CODENAME = "Deuterium Discharge"
+    VERSION = "3.4"  # Current bot version
+    CODENAME = "Energy Exchange"
     MIN_VERSION = "3.3"  # The minimum version from which you can upgrade to this one without breaking the bot
-    BUILD_DATE = "14.10.2026"  # Bot build date
+    BUILD_DATE = "15.10.2026"  # Bot build date
     ANONYMOUS_ID = 1087968824  # ID value for anonymous user tg
     EASTER_LINK = "https://2girls.1cup.one"  # Link for Easter eggs
     global_timer = 3600  # Value in seconds of duration of votes
@@ -914,28 +929,48 @@ def register_commands(plugins_command_list, built_in_command_list):
             bot.add_message_handler(handler_dict)
 
 
-def calc_engine(calc_text, to_send):
+def calc_engine(calc_text):
     try:
-        result = eval(calc_text.replace(',', '.').replace('^', '**'))
+        result = safe_calc(ast.parse(calc_text.replace(',', '.').replace('^', '**'), mode='eval').body)
         if isinstance(result, float):
-            result = round(result, 10)
-            if result.is_integer():
-                result = int(result)
+            result = int(result) if result.is_integer() else round(result, 10)
         result = str(result)
     except SyntaxError:
-        to_send.put("Неверно введено выражение для вычисления.")
-        return
+        return "Неверно введено выражение для вычисления."
     except ZeroDivisionError:
-        to_send.put(f"{calc_text}\n=деление на 0")
-        return
+        return f"{calc_text}\n=деление на 0"
     except ValueError as e:
         if 'Exceeds the limit' in str(e):
-            to_send.put("Результат слишком большой для отправки.")
+            return "Результат слишком большой для конвертации в текст."
+        elif 'Exponent is too large' in str(e):
+            return "Введена слишком большая степень, вычисление запрещено."
         else:
             logging.error(traceback.format_exc())
-            to_send.put("Неизвестная ошибка вычисления! Информация сохранена в логи бота.")
-        return
+            return "Неизвестная ошибка вычисления! Информация сохранена в логи бота."
     result = result.replace('.', ',') if calc_text.count(',') >= calc_text.count('.') else result
-    to_send.put(f"{calc_text}\n=<code>{result}</code>")
+    return f"{calc_text}\n=<code>{result}</code>"
 
 
+def safe_calc(node: ast.AST):
+
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return node.value
+
+    elif isinstance(node, ast.BinOp):
+        left = safe_calc(node.left)
+        right = safe_calc(node.right)
+
+        if isinstance(node.op, ast.Pow) and right > 1000:
+            raise ValueError("Exponent is too large")
+
+        op_type = type(node.op)
+        if op_type in CALC_OPERATORS:
+            return CALC_OPERATORS[op_type](left, right)
+
+    elif isinstance(node, ast.UnaryOp):
+        operand = safe_calc(node.operand)
+        op_type = type(node.op)
+        if op_type in CALC_OPERATORS:
+            return CALC_OPERATORS[op_type](operand)
+
+    raise ValueError("Unknown operation")

@@ -396,7 +396,7 @@ class Thresholds(PreVote):
         self.pre_vote(thr_value, "threshold")
 
     def ban(self, thr_value):
-        self.pre_vote(thr_value, "threshold")
+        self.pre_vote(thr_value, "threshold_ban")
 
     def min(self, thr_value):
         if not data.debug:
@@ -660,34 +660,35 @@ class Rating(PreVote):
         threading.Thread(target=self.rate_top).start()
 
     def rate_top(self):
+        rates = sqlWorker.get_all_rates() # Already sorted by SQLite
+        if not rates:
+            bot.reply_to(self.message, "Ещё ни у одного пользователя нет социального рейтинга!")
+            return
         rate_msg = bot.reply_to(self.message, "Сборка рейтинга, ожидайте...")
-        rates = sqlWorker.get_all_rates()
-        rates = sorted(rates, key=lambda rate: rate[1], reverse=True)
-        rate_text = "Список пользователей по социальному рейтингу:"
-        user_counter = 1
+        rates_final = []
 
         for user_rate in rates:
             try:
-                if bot.get_chat_member(data.main_chat_id, user_rate[0]).status in ["kicked", "left"]:
+                chat_member = bot.get_chat_member(data.main_chat_id, user_rate[0])
+                if chat_member.status in ["kicked", "left"]:
                     sqlWorker.clear_rate(user_rate[0])
                     continue
-                username = utils.username_parser_chat_member(bot.get_chat_member(data.main_chat_id, user_rate[0]), True)
-                rate_text = rate_text + f'\n{user_counter}. ' \
-                                        f'<a href="tg://user?id={user_rate[0]}">{username}</a>: {str(user_rate[1])}'
-                user_counter += 1
+                username = utils.username_parser_chat_member(chat_member, True)
+                rates_final.append(f'<a href="tg://user?id={user_rate[0]}">{username}</a>: {str(user_rate[1])}')
             except telebot.apihelper.ApiTelegramException as e:
                 logging.error(f'Error getting user information with ID {user_rate[0]} while assembling rating table. '
                               f'His rating will be cleared.\n{e}')
                 sqlWorker.clear_rate(user_rate[0])
                 continue
 
-        if rates is None:
-            bot.edit_message_text(self.message, "Ещё ни у одного пользователя нет социального рейтинга!",
+        if not rates_final:
+            bot.edit_message_text("Ещё ни у одного пользователя нет социального рейтинга!",
                                   rate_msg.chat.id, rate_msg.id)
             return
 
-        bot.edit_message_text(rate_text, chat_id=rate_msg.chat.id,
-                              message_id=rate_msg.id, parse_mode='html')
+        rate_text = ("Список пользователей по социальному рейтингу:\n"
+                     + "\n".join(f'{index}. {value}' for index, value in enumerate(rates_final, 1)))
+        bot.edit_message_text(rate_text, chat_id=rate_msg.chat.id, message_id=rate_msg.id, parse_mode='html')
 
 
 class Whitelist(PreVote):

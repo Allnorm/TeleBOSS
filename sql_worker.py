@@ -128,8 +128,8 @@ class SqlWorker:
     def whitelist_get_all(self):
         with SQLWrapper(self.dbname) as sql_wrapper:
             sql_wrapper.cursor.execute("""SELECT * FROM whitelist""")
-            fetchall = sql_wrapper.cursor.fetchall()
-            return fetchall
+            records = sql_wrapper.cursor.fetchall()
+            return records
 
     def mailing(self, user_id, add=False, remove=False):
         with SQLWrapper(self.dbname) as sql_wrapper:
@@ -149,8 +149,8 @@ class SqlWorker:
     def mailing_get_all(self):
         with SQLWrapper(self.dbname) as sql_wrapper:
             sql_wrapper.cursor.execute("""SELECT * FROM mailing""")
-            fetchall = sql_wrapper.cursor.fetchall()
-            return fetchall
+            records = sql_wrapper.cursor.fetchall()
+            return records
 
     def add_poll(self, *args):
         with SQLWrapper(self.dbname) as sql_wrapper:
@@ -190,10 +190,8 @@ class SqlWorker:
 
     def get_all_rates(self):
         with SQLWrapper(self.dbname) as sql_wrapper:
-            sql_wrapper.cursor.execute("""SELECT * FROM rating""")
+            sql_wrapper.cursor.execute("""SELECT * FROM rating ORDER BY rate DESC""")
             record = sql_wrapper.cursor.fetchall()
-            if not record:
-                return None
             return record
 
     def update_rate(self, user_id, change):
@@ -222,8 +220,6 @@ class SqlWorker:
         with SQLWrapper(self.dbname) as sql_wrapper:
             sql_wrapper.cursor.execute("""SELECT * FROM allies""")
             record = sql_wrapper.cursor.fetchall()
-            if not record:
-                return []
             return record
 
     def add_ally(self, chat_id):

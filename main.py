@@ -1,6 +1,11 @@
+import sys
+
+# noinspection PyUnreachableCode
+if sys.version_info < (3, 11):
+    sys.exit(f"Error: Python 3.11 or higher is required! Current version: {sys.version.split()[0]}. Bot closed.")
+
 import json
 import logging
-import multiprocessing
 import os
 import random
 import time
@@ -216,11 +221,11 @@ class BuildInCommands:
         data_list = json.loads(poll[0][6])
 
         try:
-            bot.send_message(data_list[0], "Сообщение на вашу заявку от участника чата - \"" + msg_from_usr + "\"")
+            bot.send_message(data_list[0], f'Сообщение на вашу заявку от участника чата - "{msg_from_usr}"')
             bot.reply_to(message, "Сообщение пользователю отправлено успешно.")
         except telebot.apihelper.ApiTelegramException as e:
             logging.error(f'Error sending message to applicant for membership!\n{e}')
-            bot.reply_to(message, "Ошибка отправки сообщению пользователю.")
+            bot.reply_to(message, "Ошибка отправки сообщения пользователю.")
 
 
     @staticmethod
@@ -614,24 +619,17 @@ class BuildInCommands:
             return
 
         calc_text = message.text.split(maxsplit=1)[1]
+
         if len(calc_text.replace(" ", "")) > 500:
             bot.reply_to(message, "В выражении должно быть не более 500 полезных символов.")
             return
+
         if not set(calc_text).issubset("1234567890 */+-().,^"):
             bot.reply_to(message, "Неверно введено выражение для вычисления.")
             return
 
-        to_send = multiprocessing.Queue()
-        process = multiprocessing.Process(target=utils.calc_engine, args=(calc_text, to_send))
-        process.start()
-        process.join(timeout=5)
-        if process.is_alive():
-            process.terminate()
-            bot.reply_to(message, "Время вычисления превысило таймаут. Отменено.")
-            return
-
         try:
-            bot.reply_to(message, to_send.get(), parse_mode='html')
+            bot.reply_to(message, utils.calc_engine(calc_text), parse_mode='html')
         except telebot.apihelper.ApiTelegramException as e:
             if 'message is too long' in str(e):
                 bot.reply_to(message, "Результат слишком большой для отправки.")

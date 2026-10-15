@@ -946,6 +946,7 @@ class OpSetup(PreVote):
                 "боту или отключенных на уровне чата прав приведёт к ошибке!\n"\
                 "Изменения разрешены хостером - {}\nТекущие права для чата:</b>\n{}" \
                 "\n<b>ВНИМАНИЕ: при переназначении прав пользователю его текущие права перезаписываются!</b>"
+    disabled_rights_for_bot = []
 
     def pre_return(self) -> Optional[bool]:
         if utils.command_forbidden(self.message):
@@ -1004,6 +1005,15 @@ class OpSetup(PreVote):
         return self.vote_text
 
     def direct_fn(self):
+
+        try:
+            if not utils.admin_rules_checker('can_promote_members'):
+                bot.reply_to(self.message, "У меня нет права назначать администраторов!")
+                return
+        except utils.NotAdminError:
+            bot.reply_to(self.message, "У меня нет прав администратора для выполнения данной команды!")
+            return
+
         if utils.topic_reply_fix(self.message.reply_to_message) is None:
             self.reply_user_id, self.reply_username, _ = utils.reply_msg_target(self.message)
         else:
@@ -1034,16 +1044,23 @@ class OpSetup(PreVote):
             if self.is_voting_exist_op(unique_id):
                 return
 
+        self.disabled_rights_for_bot = [right for right in data.admin_allowed.keys()
+                                        if not utils.admin_rules_checker(right)]
+
         self.vote_text = f"Выберите разрешённые права для администратора {utils.html_fix(self.reply_username)}:"
         self.vote_args = [utils.username_parser(self.message, True), self.user_id,
-                          self.reply_username, self.reply_user_id]
+                          self.reply_username, self.reply_user_id, self.disabled_rights_for_bot]
         self.poll_maker(current_timer=86400, silent=True)
 
     def get_buttons_scheme(self):
         button_scheme = []
         for name, value in data.admin_allowed.items():
             if value:
-                allowed = "✅"
+                if name in self.disabled_rights_for_bot:
+                    allowed = "⛔️"
+                    value = False
+                else:
+                    allowed = "✅"
             elif self.unique_id == "global op setup":
                 allowed = "❌"
             else:

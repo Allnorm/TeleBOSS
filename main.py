@@ -1087,10 +1087,18 @@ def op_button(call_msg):
             else:
                 prevote.OpGlobal(call_msg.message, poll)
             return
-        if not data.admin_allowed[button["button_type"].split("_", maxsplit=1)[1]] and poll[0][2] == 'op setup':
-            bot.answer_callback_query(callback_query_id=call_msg.id,
-                                      text="Выдача данного права запрещена на глобальном уровне!", show_alert=True)
-            return
+        if poll[0][2] == 'op setup':
+            if not data.admin_allowed[button["button_type"].split("_", maxsplit=1)[1]]:
+                bot.answer_callback_query(callback_query_id=call_msg.id,
+                                          text="Выдача данного права запрещена на глобальном уровне!", show_alert=True)
+                return
+            if button["button_type"].split("_", maxsplit=1)[1] in json.loads(poll[0][6])[4]:
+                bot.answer_callback_query(
+                    callback_query_id=call_msg.id,
+                    text="Выдача данного права невозможна, потому что у бота недостаточно прав для этого.",
+                    show_alert=True
+                )
+                return
         if not button['value']:
             allowed = "✅"
         else:

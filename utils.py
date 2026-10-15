@@ -56,6 +56,14 @@ CALC_OPERATORS: dict[type, Any] = {
 }
 
 
+class NotAdminError(Exception):
+    pass
+
+
+class UnidentifiedPermissionsError(Exception):
+    pass
+
+
 @dataclass
 class Command:
     command_func: Callable
@@ -102,7 +110,7 @@ class ConfigData:
     # Do not edit this section to change the parameters of the bot!
     # TeleBOSS is customizable via config file or chat voting!
     # It is possible to access sqlWorker.params directly for parameters that are stored in the database
-    VERSION = "3.4"  # Current bot version
+    VERSION = "3.4.1"  # Current bot version
     CODENAME = "Energy Exchange"
     MIN_VERSION = "3.3"  # The minimum version from which you can upgrade to this one without breaking the bot
     BUILD_DATE = "15.10.2026"  # Bot build date
@@ -726,7 +734,7 @@ def time_parser(instr: str):
     buf = 0
     pdata = 0
     for label in instr:
-        if label.isnumeric():
+        if label in '0123456789':
             buf = buf * 10 + int(label)
         else:
             label = label.lower()
@@ -939,6 +947,8 @@ def calc_engine(calc_text):
         return "Неверно введено выражение для вычисления."
     except ZeroDivisionError:
         return f"{calc_text}\n=деление на 0"
+    except OverflowError:
+        return "Результат вычисления слишком большой."
     except ValueError as e:
         if 'Exceeds the limit' in str(e):
             return "Результат слишком большой для конвертации в текст."
@@ -974,3 +984,26 @@ def safe_calc(node: ast.AST):
             return CALC_OPERATORS[op_type](operand)
 
     raise ValueError("Unknown operation")
+
+
+def admin_rules_checker(rule: str = None) -> bool:
+    bot_member_info = bot.get_chat_member(data.main_chat_id, data.bot_id)
+    if bot_member_info.status != 'administrator':
+        raise NotAdminError
+    if not rule:
+        return True
+    try:
+        value = getattr(bot_member_info, rule)
+        if value and not isinstance(value, bool):
+            logging.error(f"The value of the {rule} field for the 'bot.get_chat_member' "
+                          f"object is not a bool (and equals {value}), func utils.admin_rules_checker.")
+            raise TypeError
+        if value is None:
+            return False
+    except AttributeError:
+        logging.error(f"The 'bot.get_chat_member' object does not have a field with the value {rule}, "
+                      f"func utils.admin_rules_checker.")
+        raise UnidentifiedPermissionsError
+    except TypeError:
+        raise UnidentifiedPermissionsError
+    return value

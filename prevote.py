@@ -610,6 +610,10 @@ class Rating(PreVote):
     def set_args(self) -> dict:
         return {"top": self.top, "up": self.up, "down": self.down}
 
+    def help(self):
+        if data.rate:
+            super().help()
+
     def up(self):
         mode = "up"
         mode_text = "увеличение"
@@ -2122,20 +2126,26 @@ class Shield(PreVote):
         return {"force": self.force, "enable": self.enable, "disable": self.disable}
 
     def force(self):
+
         if not bot.get_chat_member(data.main_chat_id, self.message.from_user.id).status in ("creator", "administrator"):
             bot.reply_to(self.message, "Не-администратор не может использовать эту команду!")
             return
+
         shield_timer = sqlWorker.params("shield", default_return=0)
         if shield_timer > int(time.time()):
             bot.reply_to(self.message, "Защита уже включена! До отключения осталось "
                                        f"{utils.formatted_timer(shield_timer - int(time.time()))}")
             return
-        timer = utils.time_parser(utils.extract_arg(self.msg_txt, 2))
-        if timer is None:
-            timer = 43200
-        if not 3600 <= timer <= 86400:
-            bot.reply_to(self.message, "Значение таймера защиты может быть от 1 до 24 часов!")
+
+        timer = utils.extract_arg(self.msg_txt, 2)
+        if not timer:
+            timer = '12h'
+
+        timer = utils.time_parser(timer)
+        if timer is None or not 3600 <= timer <= 86400:
+            bot.reply_to(self.message, "Значение таймера защиты должно быть от 1 до 24 часов!")
             return
+
         sqlWorker.params("shield", rewrite_value=int(time.time()) + timer)
         bot.reply_to(self.message, f"Защита чата успешно включена на {utils.formatted_timer(timer)} "
                                    "Теперь добавление новых участников временно невозможно!")

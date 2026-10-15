@@ -1144,7 +1144,7 @@ class OpGlobal(Op):
     def op_vote_text(self):
         return f"Тема голосования: смена разрешённых для выдачи пользователям прав." \
                f"\nПрава, выбранные для выдачи пользователям:{self.rights_text}" \
-               f"\nИнициатор голосования: {utils.html_fix(self.data_list[0])}."
+               f"\nИнициатор голосования: {utils.html_fix(self.data_list[0])}.\n"
 
     def vote_args(self):
         return [self.rights_data]
